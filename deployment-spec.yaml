@@ -1,0 +1,5 @@
+image: gderossi/error-corp-test
+port: 8501
+resources:
+  replicas: 1
+  instanceType: C4
