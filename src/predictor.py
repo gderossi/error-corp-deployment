@@ -85,7 +85,7 @@ def predict():
 
     guess0 = optimize.create_guess()
     guess1 = optimize.optimize1(guess0)
-    guess2 = optimize.optimize2(guess1)
+    guess2 = optimize.optimize2(guess1.x)
 
     output = {
         'guess0': str(guess0),
