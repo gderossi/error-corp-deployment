@@ -7,6 +7,8 @@ import importlib.util
 import logging
 import traceback
 import numpy as np
+from scipy.optimize import minimize, NonlinearConstraint, Bounds
+import optimize
 
 logger = logging.getLogger()
 logger.setLevel(logging.WARN)
@@ -47,48 +49,15 @@ def not_found_on_error(handler):
     new_handler.__name__ = handler.__name__
     return new_handler
 
-
-class ScoringService(object):
-    models = {}
-
-    @classmethod
-    def get_model(cls, model: str):
-        def get_fs_models():
-            return os.listdir('/opt/models/')
-
-        if model not in cls.models:
-            assert model in get_fs_models(), f'model not found: {model}'
-            spec = importlib.util.spec_from_file_location(
-                f'{model}',
-                f'/opt/models/{model}/{model}.py'
-            )
-
-            cls.models[model] = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(cls.models[model])
-
-        return cls.models[model]
-
-    @classmethod
-    def predict(cls, model, input):
-        clf = cls.get_model(model)
-        return clf.Model.predict(input)
-
-    @classmethod
-    def metadata(cls, model):
-        clf = cls.get_model(model)
-        return clf.Model.metadata()
-
-
 app = flask.Flask(__name__)
 
 
-@app.route('/v1/models/<model>', methods=['GET'])
+@app.route('/optimizer', methods=['GET'])
 @not_found_on_error
-def ping(model):
-    model = ScoringService.get_model(model)
+def ping():
     status = 200
     res = {
-        'model_status': {
+        'optimizer_status': {
             'state': 'AVAILABLE',
             'status': {'error_code': 'OK', 'error_message': ''},
         }
@@ -97,40 +66,34 @@ def ping(model):
 
 
 @app.route(
-    '/v1/models/<model>/metadata',
+    '/optimizer/metadata',
     methods=['GET']
 )
 @not_found_on_error
-def metadata(model):
-    metadata = ScoringService.metadata(model)
-    assert metadata is not None, f'model {model} returned empty metadata'
+def metadata():
+    metadata = "test metadata"
     return metadata, 200
 
 
 @app.route(
-    '/v1/models/<model>:predict',
+    '/optimizer:predict',
     methods=['POST']
 )
 @not_found_on_error
-def predict(model):
-    body = flask.request.json
+def predict():
+    #body = flask.request.json
 
-    model_spec = ScoringService.metadata(model)
-    schema = model_spec['inputs']
-    assert ('instances' in body)
-    parsed_data = {}
-    data = body['instances']
-    record_count = len(data)
+    guess0 = optimize.create_guess()
+    guess1 = optimize.optimize1(guess0)
+    guess2 = optimize.optimize2(guess1)
 
-    extraneous_fields = set(data.keys()) - set(schema.keys())
-    assert not extraneous_fields, (
-        f'received extraneous fields {extraneous_fields}')
+    output = {
+        'guess0': str(guess0),
+        'guess1': str(guess1.x),
+        'guess2': str(guess2.x)
+        }
 
-    for field, info in schema.items():
-        parsed_data[field] = np.asarray(data[field], dtype=info['dtype'])
-
-    # Do the prediction
-    return ScoringService.predict(model, parsed_data), 200
+    return output, 200
 
 
 @app.route('/healthcheck', methods=['GET'])

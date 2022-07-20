@@ -1,4 +1,4 @@
-import predictor as model_server
+import predictor as optimizer_server
 
 
-app = model_server.app
+app = optimizer_server.app
